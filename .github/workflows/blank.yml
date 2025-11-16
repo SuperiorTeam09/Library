@@ -1,52 +1,76 @@
-name: Decompile Groovepad XAPK (Windows)
+name: Decompile XAPK with JADX
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   decompile:
     runs-on: windows-latest
-
+    
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Download XAPK
-        shell: powershell
+      
+      - name: Download XAPK file
         run: |
-          mkdir xapk
-          Invoke-WebRequest -Uri "https://github.com/SuperiorTeam09/Library/releases/download/Main/Groovepad.-.music.beat.maker_1.26.0_APKPure.xapk" -OutFile "xapk/app.xapk"
-
+          Invoke-WebRequest -Uri "https://github.com/SuperiorTeam09/Library/releases/download/Main/Groovepad.xapk" -OutFile "Groovepad.xapk"
+        shell: pwsh
+      
       - name: Extract XAPK
-        shell: powershell
         run: |
-          Expand-Archive "xapk/app.xapk" "xapk/unpacked"
-          mkdir apk
-          Get-ChildItem "xapk/unpacked" -Filter *.apk | Copy-Item -Destination apk
-
-      - name: Install 7zip
-        uses: crazy-max/ghaction-chocolatey@v3
-        with:
-          args: install 7zip
-
+          Expand-Archive -Path "Groovepad.xapk" -DestinationPath "xapk_extracted"
+        shell: pwsh
+      
       - name: Download JADX
-        shell: powershell
         run: |
-          Invoke-WebRequest -Uri "https://github.com/skylot/jadx/releases/latest/download/jadx.zip" -OutFile "jadx.zip"
-          7z x jadx.zip -ojadx
-
-      - name: Run JADX
-        shell: powershell
+          Invoke-WebRequest -Uri "https://github.com/skylot/jadx/releases/latest/download/jadx-1.5.1.zip" -OutFile "jadx.zip"
+          Expand-Archive -Path "jadx.zip" -DestinationPath "jadx"
+        shell: pwsh
+      
+      - name: Find and Decompile APK files
         run: |
-          mkdir output
-          foreach ($apk in Get-ChildItem "apk" -Filter *.apk) {
-            $name = $apk.BaseName
-            Write-Host "Decompiling $name..."
-            .\jadx\bin\jadx.bat "$($apk.FullName)" -d "output\$name"
+          $apkFiles = Get-ChildItem -Path "xapk_extracted" -Filter "*.apk" -Recurse
+          New-Item -ItemType Directory -Path "decompiled" -Force
+          
+          foreach ($apk in $apkFiles) {
+            $outputDir = "decompiled/$($apk.BaseName)"
+            Write-Host "Decompiling $($apk.Name)..."
+            & "jadx\bin\jadx.bat" -d $outputDir $apk.FullName
           }
-
-      - name: Upload Decompiled Files
+        shell: pwsh
+      
+      - name: Zip decompiled output
+        run: |
+          Compress-Archive -Path "decompiled\*" -DestinationPath "Groovepad-decompiled.zip"
+        shell: pwsh
+      
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: groovepad-decompiled
-          path: output
+          path: Groovepad-decompiled.zip
+          retention-days: 30
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: decompiled-${{ github.run_number }}
+          release_name: Groovepad Decompiled - Build ${{ github.run_number }}
+          draft: false
+          prerelease: false
+      
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./Groovepad-decompiled.zip
+          asset_name: Groovepad-decompiled.zip
+          asset_content_type: application/zip
