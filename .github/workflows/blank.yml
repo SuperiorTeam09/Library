@@ -1,46 +1,56 @@
-name: Decompile Groovepad XAPK
+name: Decompile Groovepad XAPK (Windows)
 
 on:
   workflow_dispatch:
 
 jobs:
   decompile:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget jadx
-
       - name: Download XAPK
+        shell: powershell
         run: |
           mkdir xapk
-          wget "https://github.com/SuperiorTeam09/Library/releases/download/Main/Groovepad.-.music.beat.maker_1.26.0_APKPure.xapk" \
-              -O xapk/app.xapk
+          Invoke-WebRequest `
+            -Uri "https://github.com/SuperiorTeam09/Library/releases/download/Main/Groovepad.-.music.beat.maker_1.26.0_APKPure.xapk" `
+            -OutFile "xapk/app.xapk"
 
       - name: Extract XAPK
+        shell: powershell
         run: |
-          unzip xapk/app.xapk -d xapk/unpacked
+          Expand-Archive "xapk/app.xapk" "xapk/unpacked"
           mkdir apk
-          cp xapk/unpacked/*.apk apk/ || true
-          echo "Extracted APKs:"
-          ls apk/
+          Get-ChildItem "xapk/unpacked" -Filter *.apk | Copy-Item -Destination apk
 
-      - name: Run Jadx
+      - name: Install 7zip (needed for JADX zip)
+        uses: crazy-max/ghaction-chocolatey@v3
+        with:
+          args: install 7zip
+
+      - name: Download JADX
+        shell: powershell
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://github.com/skylot/jadx/releases/latest/download/jadx-1.5.0.zip" `
+            -OutFile "jadx.zip"
+          7z x jadx.zip -ojadx
+
+      - name: Run JADX
+        shell: powershell
         run: |
           mkdir output
-          for file in apk/*.apk; do
-            name=$(basename "$file" .apk)
-            echo "Decompiling $name..."
-            jadx "$file" -d output/"$name"
-          done
+          foreach ($apk in Get-ChildItem "apk" -Filter *.apk) {
+            $name = $apk.BaseName
+            Write-Host "Decompiling $name..."
+            .\jadx\bin\jadx.bat "$($apk.FullName)" -d "output\$name"
+          }
 
       - name: Upload Decompiled Files
         uses: actions/upload-artifact@v4
         with:
-          name: groovepad-jadx-output
+          name: groovepad-decompiled
           path: output
