@@ -26,7 +26,10 @@ jobs:
       
       - name: Download JADX
         run: |
-          Invoke-WebRequest -Uri "https://github.com/skylot/jadx/releases/latest/download/jadx-1.5.1.zip" -OutFile "jadx.zip"
+          $latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/skylot/jadx/releases/latest"
+          $jadxAsset = $latestRelease.assets | Where-Object { $_.name -like "jadx-*.zip" -and $_.name -notlike "*-with-jre-*" } | Select-Object -First 1
+          Write-Host "Downloading JADX: $($jadxAsset.name)"
+          Invoke-WebRequest -Uri $jadxAsset.browser_download_url -OutFile "jadx.zip"
           Expand-Archive -Path "jadx.zip" -DestinationPath "jadx"
         shell: pwsh
       
