@@ -15,9 +15,7 @@ jobs:
         shell: powershell
         run: |
           mkdir xapk
-          Invoke-WebRequest `
-            -Uri "https://github.com/SuperiorTeam09/Library/releases/download/Main/Groovepad.-.music.beat.maker_1.26.0_APKPure.xapk" `
-            -OutFile "xapk/app.xapk"
+          Invoke-WebRequest -Uri "https://github.com/SuperiorTeam09/Library/releases/download/Main/Groovepad.-.music.beat.maker_1.26.0_APKPure.xapk" -OutFile "xapk/app.xapk"
 
       - name: Extract XAPK
         shell: powershell
@@ -26,7 +24,7 @@ jobs:
           mkdir apk
           Get-ChildItem "xapk/unpacked" -Filter *.apk | Copy-Item -Destination apk
 
-      - name: Install 7zip (needed for JADX zip)
+      - name: Install 7zip
         uses: crazy-max/ghaction-chocolatey@v3
         with:
           args: install 7zip
@@ -34,9 +32,7 @@ jobs:
       - name: Download JADX
         shell: powershell
         run: |
-          Invoke-WebRequest `
-            -Uri "https://github.com/skylot/jadx/releases/latest/download/jadx-1.5.0.zip" `
-            -OutFile "jadx.zip"
+          Invoke-WebRequest -Uri "https://github.com/skylot/jadx/releases/latest/download/jadx.zip" -OutFile "jadx.zip"
           7z x jadx.zip -ojadx
 
       - name: Run JADX
